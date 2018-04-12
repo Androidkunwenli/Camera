@@ -1,5 +1,6 @@
 package com.caah.mppclient.camera;
 
+import android.content.Intent;
 import android.hardware.Camera;
 import android.os.Handler;
 import android.support.v7.app.AppCompatActivity;
@@ -35,7 +36,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         mRectOnCamera = (RectOnCamera) findViewById(R.id.rectOnCamera);
         takePicBtn = (Button) findViewById(R.id.takePic);
         takePicBtn.setOnClickListener(this);
-
+        mCameraSurfaceView.setOnPathListener(new CameraSurfaceView.OnPathListener() {
+            @Override
+            public void imagePath(String path) {
+                //回调图片路径
+                Log.i(TAG, "imagePath: " + path);
+//                Intent intent = new Intent();
+//                intent.putExtra("imagePath", path);
+//                setResult(RESULT_OK, intent);
+//                finish();
+            }
+        });
     }
 
     @Override
@@ -43,9 +54,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         switch (v.getId()) {
             case R.id.takePic:
                 //拍照
-//                mCameraSurfaceView.takePicture();
+                mCameraSurfaceView.takePicture();
                 //切换摄像头
-                mCameraSurfaceView.switchCamera();
+//                mCameraSurfaceView.switchCamera();
                 break;
             default:
                 break;

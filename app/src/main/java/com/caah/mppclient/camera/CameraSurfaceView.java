@@ -2,16 +2,23 @@ package com.caah.mppclient.camera;
 
 import android.app.Activity;
 import android.content.Context;
+import android.content.Intent;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
+import android.graphics.PixelFormat;
 import android.hardware.Camera;
+import android.media.ExifInterface;
+import android.net.Uri;
 import android.os.Environment;
+import android.provider.MediaStore;
 import android.util.AttributeSet;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.Surface;
 import android.view.SurfaceHolder;
 import android.view.SurfaceView;
+import android.view.View;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.Toast;
@@ -42,11 +49,17 @@ public class CameraSurfaceView extends SurfaceView implements SurfaceHolder.Call
 
     public CameraSurfaceView(Context context, AttributeSet attrs) {
         this(context, attrs, 0);
+        mContext = context;
+        init(context);
     }
 
     public CameraSurfaceView(Context context, AttributeSet attrs, int defStyleAttr) {
         super(context, attrs, defStyleAttr);
         mContext = context;
+        init(context);
+    }
+
+    private void init(Context context) {
         getScreenMetrix(context);
         initView();
     }
@@ -106,6 +119,7 @@ public class CameraSurfaceView extends SurfaceView implements SurfaceHolder.Call
     private void setCameraParams(Camera camera, int width, int height) {
         Log.i(TAG, "setCameraParams  width=" + width + "  height=" + height);
         Camera.Parameters parameters = mCamera.getParameters();
+//        parameters.setPictureFormat(PixelFormat.RGBA_8888);
         // 获取摄像头支持的PictureSize列表
         List<Camera.Size> pictureSizeList = parameters.getSupportedPictureSizes();
         for (Camera.Size size : pictureSizeList) {
@@ -168,7 +182,7 @@ public class CameraSurfaceView extends SurfaceView implements SurfaceHolder.Call
         if (null == result) {
             for (Camera.Size size : pictureSizeList) {
                 float curRatio = ((float) size.width) / size.height;
-                if (curRatio == 4f / 3) {// 默认w:h = 4:3
+                if (curRatio == 16F / 9F) {// 默认w:h = 4:3
                     result = size;
                     break;
                 }
@@ -202,17 +216,27 @@ public class CameraSurfaceView extends SurfaceView implements SurfaceHolder.Call
             Bitmap bm = null;
             try {
                 // 获得图片
-                bm = BitmapFactory.decodeByteArray(data, 0, data.length);
+                bm = rotateBitmapByDegree(BitmapFactory.decodeByteArray(data, 0, data.length), 90);
                 if (Environment.getExternalStorageState().equals(Environment.MEDIA_MOUNTED)) {
-                    Log.i(TAG, "Environment.getExternalStorageDirectory()=" + Environment.getExternalStorageDirectory());
-                    String filePath = "/sdcard/dyk" + System.currentTimeMillis() + ".jpg";//照片保存路径
-                    File file = new File(filePath);
+                    //系统相册目录
+                    String galleryPath = Environment.getExternalStorageDirectory()
+                            + File.separator + Environment.DIRECTORY_DCIM
+                            + File.separator + "Camera" + File.separator;
+                    File file = new File(galleryPath, System.currentTimeMillis() + ".jpg");
                     if (!file.exists()) {
                         file.createNewFile();
                     }
                     bos = new BufferedOutputStream(new FileOutputStream(file));
                     bm.compress(Bitmap.CompressFormat.JPEG, 100, bos);//将图片压缩到流中
-
+                    //通知相册更新
+                    MediaStore.Images.Media.insertImage(mContext.getContentResolver(),
+                            bm, file.toString(), null);
+                    Intent intent = new Intent(Intent.ACTION_MEDIA_SCANNER_SCAN_FILE);
+                    Uri uri = Uri.fromFile(file);
+                    intent.setData(uri);
+                    mContext.sendBroadcast(intent);
+//                    Log.i(TAG, "imagePath: " + file.getPath());
+                    mOnPathListener.imagePath(file.getPath());
                 } else {
                     Toast.makeText(mContext, "没有检测到内存卡", Toast.LENGTH_SHORT).show();
                 }
@@ -232,6 +256,43 @@ public class CameraSurfaceView extends SurfaceView implements SurfaceHolder.Call
 
         }
     };
+    public OnPathListener mOnPathListener;
+
+    public interface OnPathListener {
+        void imagePath(String path);
+    }
+
+    public void setOnPathListener(OnPathListener onPathListener) {
+        mOnPathListener = onPathListener;
+    }
+
+    /**
+     * 将图片按照某个角度进行旋转
+     *
+     * @param bm     需要旋转的图片
+     * @param degree 旋转角度
+     * @return 旋转后的图片
+     */
+    public static Bitmap rotateBitmapByDegree(Bitmap bm, int degree) {
+        Bitmap returnBm = null;
+
+        // 根据旋转角度，生成旋转矩阵
+        Matrix matrix = new Matrix();
+        matrix.postRotate(degree);
+        try {
+            // 将原始图片按照旋转矩阵进行旋转，并得到新的图片
+            returnBm = Bitmap.createBitmap(bm, 0, 0, bm.getWidth(),
+                    bm.getHeight(), matrix, true);
+        } catch (OutOfMemoryError e) {
+        }
+        if (returnBm == null) {
+            returnBm = bm;
+        }
+        if (bm != returnBm) {
+            bm.recycle();
+        }
+        return returnBm;
+    }
 
     public void takePicture() {
         //设置参数,并拍照
@@ -286,5 +347,6 @@ public class CameraSurfaceView extends SurfaceView implements SurfaceHolder.Call
             isBackCamera = true;
         }
     }
+
     public static boolean isBackCamera = true;
 }
