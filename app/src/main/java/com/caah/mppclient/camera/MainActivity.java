@@ -21,9 +21,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private RectOnCamera mRectOnCamera;
     private Button takePicBtn;
 
-    private boolean isClicked;
-    private SurfaceHolder mHandler;
-
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
